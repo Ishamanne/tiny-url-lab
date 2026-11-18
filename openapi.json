@@ -1,0 +1,298 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Tiny URL Lab API",
+    "description": "URL Shortener Service API Documentation",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local server"
+    }
+  ],
+  "paths": {
+    "/api/shorten": {
+      "post": {
+        "tags": ["URL Shortener"],
+        "summary": "Create a short URL",
+        "operationId": "createShortUrl",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShortUrlRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "originalUrl": "https://example.com"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Short URL created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShortUrlResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        }
+      }
+    },
+    "/api/urls": {
+      "get": {
+        "tags": ["URL Shortener"],
+        "summary": "Get all short URLs",
+        "operationId": "getAllShortUrls",
+        "responses": {
+          "200": {
+            "description": "List of all short URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShortUrlResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/urls/{shortCode}": {
+      "get": {
+        "tags": ["URL Shortener"],
+        "summary": "Get a specific short URL",
+        "operationId": "getShortUrl",
+        "parameters": [
+          {
+            "name": "shortCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short URL details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShortUrlResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Short URL not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["URL Shortener"],
+        "summary": "Delete a short URL",
+        "operationId": "deleteShortUrl",
+        "parameters": [
+          {
+            "name": "shortCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Short URL deleted successfully"
+          },
+          "404": {
+            "description": "Short URL not found"
+          }
+        }
+      }
+    },
+    "/api/urls/{shortCode}/analytics": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get analytics for a short URL",
+        "operationId": "getAnalytics",
+        "parameters": [
+          {
+            "name": "shortCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Short URL not found"
+          }
+        }
+      }
+    },
+    "/{shortCode}": {
+      "get": {
+        "tags": ["Redirect"],
+        "summary": "Redirect to original URL",
+        "operationId": "redirect",
+        "parameters": [
+          {
+            "name": "shortCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to original URL"
+          },
+          "404": {
+            "description": "Short URL not found"
+          },
+          "410": {
+            "description": "URL no longer available"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateShortUrlRequest": {
+        "type": "object",
+        "required": ["originalUrl"],
+        "properties": {
+          "originalUrl": {
+            "type": "string",
+            "description": "The original URL to shorten",
+            "example": "https://example.com"
+          },
+          "customAlias": {
+            "type": "string",
+            "description": "Optional custom alias for the short URL (if not provided, a random code will be generated)",
+            "example": "mylink"
+          },
+          "expiresInMinutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optional expiration time in minutes (defaults to 8 days = 11520 minutes if not provided)",
+            "example": 60
+          }
+        }
+      },
+      "ShortUrlResponse": {
+        "type": "object",
+        "properties": {
+          "shortCode": {
+            "type": "string",
+            "description": "Unique short code for the URL",
+            "example": "abc123X"
+          },
+          "shortUrl": {
+            "type": "string",
+            "description": "Complete shortened URL",
+            "example": "http://localhost:8080/abc123X"
+          },
+          "originalUrl": {
+            "type": "string",
+            "description": "Original long URL",
+            "example": "https://example.com"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when URL was created"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expiration timestamp (defaults to 8 days after creation)"
+          },
+          "clickCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of times the short URL has been accessed"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE", "DELETED", "EXPIRED"],
+            "description": "Current status of the short URL"
+          }
+        }
+      },
+      "AnalyticsResponse": {
+        "type": "object",
+        "properties": {
+          "shortCode": {
+            "type": "string",
+            "description": "Short code being analyzed"
+          },
+          "totalClicks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of clicks"
+          },
+          "clicksLast24Hours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of clicks in the last 24 hours"
+          },
+          "clicksLast7Days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of clicks in the last 7 days"
+          },
+          "countryDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Distribution of clicks by country"
+          },
+          "deviceDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Distribution of clicks by device type (Desktop, Mobile, Tablet)"
+          }
+        }
+      }
+    }
+  }
+}
