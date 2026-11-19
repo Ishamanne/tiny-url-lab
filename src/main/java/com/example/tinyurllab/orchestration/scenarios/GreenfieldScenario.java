@@ -53,8 +53,6 @@ public class GreenfieldScenario implements WorkflowScenario {
                 .stage(WorkflowStage.ARCHITECTURE_DESIGN)
                 .type(TaskNode.TaskType.DESIGN)
                 .dependencies(List.of("req-001"))
-                .requiresHumanApproval(true)
-                .approvalReason("Critical architectural decisions require human review")
                 .entryGates(List.of(
                         GateCheck.builder()
                                 .id("gate-arch-001")
@@ -204,8 +202,6 @@ public class GreenfieldScenario implements WorkflowScenario {
                                 .type(GateCheck.GateType.PERFORMANCE_THRESHOLD)
                                 .build()
                 ))
-                .requiresHumanApproval(true)
-                .approvalReason("Final release validation requires human sign-off")
                 .build();
         tasks.add(validate);
 

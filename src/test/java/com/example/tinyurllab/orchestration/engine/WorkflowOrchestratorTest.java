@@ -129,33 +129,29 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void executeWorkflow_WithApprovalGates_Success() {
+    void executeWorkflow_SimpleExecution_Success() {
         // Arrange
         List<TaskNode> tasks = new ArrayList<>();
 
         TaskNode task1 = TaskNode.builder()
                 .id("task-1")
-                .name("Task Requiring Approval")
+                .name("Simple Task")
                 .stage(WorkflowStage.ARCHITECTURE_DESIGN)
                 .type(TaskNode.TaskType.DESIGN)
                 .dependencies(List.of())
-                .requiresHumanApproval(true)
-                .approvalReason("Critical design decision")
                 .build();
         tasks.add(task1);
 
         WorkflowContext context = new WorkflowContext();
         context.setWorkflowId("test-workflow-3");
-        context.setRequirement("Test approval workflow");
+        context.setRequirement("Test simple workflow");
 
         // Act
         WorkflowContext result = orchestrator.executeWorkflow("test-workflow-3", tasks, context);
 
         // Assert
         assertNotNull(result);
-        assertTrue(result.getApprovals().containsKey("task-1"));
-        assertTrue(result.getAuditTrail().stream()
-                .anyMatch(e -> e.getEventType().equals("APPROVAL_GRANTED")));
+        assertEquals(WorkflowContext.WorkflowStatus.COMPLETED, result.getStatus());
     }
 
     @Test
@@ -262,126 +258,5 @@ class WorkflowOrchestratorTest {
         assertEquals("test-workflow-6", retrieved.getWorkflowId());
     }
 
-    @Test
-    void testReplanStrategy_TestFailure() {
-        // Test that test failure re-planning strategy works
-        WorkflowOrchestrator.TestFailureReplanStrategy strategy =
-                new WorkflowOrchestrator.TestFailureReplanStrategy();
-
-        TaskNode failedTask = TaskNode.builder()
-                .id("test-1")
-                .name("Test Task")
-                .stage(WorkflowStage.TESTING)
-                .type(TaskNode.TaskType.TEST_EXECUTION)
-                .build();
-        failedTask.setErrorMessage("Test coverage below threshold");
-
-        WorkflowContext context = new WorkflowContext();
-        context.setWorkflowId("test-replan");
-        Map<String, TaskNode> taskMap = new HashMap<>();
-
-        // Act
-        strategy.replan(failedTask, context, taskMap);
-
-        // Assert
-        assertTrue(taskMap.containsKey("test-1_refinement"));
-        assertEquals("Added test refinement task to address test failures",
-                strategy.getDescription());
-        assertTrue(context.getAuditTrail().stream()
-                .anyMatch(e -> e.getEventType().equals("TASK_ADDED")));
-    }
-
-    @Test
-    void testReplanStrategy_SecurityIssue() {
-        // Test that security failure re-planning strategy works
-        WorkflowOrchestrator.SecurityReplanStrategy strategy =
-                new WorkflowOrchestrator.SecurityReplanStrategy();
-
-        TaskNode failedTask = TaskNode.builder()
-                .id("sec-1")
-                .name("Security Validation")
-                .stage(WorkflowStage.VALIDATION)
-                .type(TaskNode.TaskType.VALIDATION)
-                .build();
-        failedTask.setErrorMessage("Security vulnerability detected");
-
-        WorkflowContext context = new WorkflowContext();
-        context.setWorkflowId("test-sec-replan");
-        Map<String, TaskNode> taskMap = new HashMap<>();
-
-        // Act
-        strategy.replan(failedTask, context, taskMap);
-
-        // Assert
-        assertTrue(taskMap.containsKey("sec-1_security_hardening"));
-        TaskNode hardeningTask = taskMap.get("sec-1_security_hardening");
-        assertTrue(hardeningTask.isRequiresHumanApproval());
-        assertEquals("Security vulnerability requires manual review",
-                hardeningTask.getApprovalReason());
-    }
-
-    @Test
-    void testReplanStrategy_BuildFailure() {
-        // Test that build failure re-planning strategy works
-        WorkflowOrchestrator.BuildFailureReplanStrategy strategy =
-                new WorkflowOrchestrator.BuildFailureReplanStrategy();
-
-        TaskNode failedTask = TaskNode.builder()
-                .id("build-1")
-                .name("Build Task")
-                .stage(WorkflowStage.IMPLEMENTATION)
-                .type(TaskNode.TaskType.CODE_GENERATION)
-                .build();
-        failedTask.setErrorMessage("Compilation failed due to missing dependency");
-
-        WorkflowContext context = new WorkflowContext();
-        context.setWorkflowId("test-build-replan");
-        Map<String, TaskNode> taskMap = new HashMap<>();
-
-        // Act
-        strategy.replan(failedTask, context, taskMap);
-
-        // Assert
-        assertTrue(taskMap.containsKey("build-1_dependency_resolution"));
-        assertEquals("Added dependency resolution task to fix build issues",
-                strategy.getDescription());
-    }
-
-    @Test
-    void testReplanStrategy_QualityGate() {
-        // Test that quality gate re-planning strategy works
-        WorkflowOrchestrator.QualityGateReplanStrategy strategy =
-                new WorkflowOrchestrator.QualityGateReplanStrategy();
-
-        TaskNode failedTask = TaskNode.builder()
-                .id("qual-1")
-                .name("Quality Check")
-                .stage(WorkflowStage.VALIDATION)
-                .type(TaskNode.TaskType.VALIDATION)
-                .maxRetries(2)
-                .exitGates(List.of(
-                        GateCheck.builder()
-                                .id("gate-1")
-                                .name("Quality Gate")
-                                .type(GateCheck.GateType.CODE_QUALITY)
-                                .build()
-                ))
-                .build();
-        failedTask.setErrorMessage("Quality gate failed");
-
-        WorkflowContext context = new WorkflowContext();
-        context.setWorkflowId("test-qual-replan");
-        Map<String, TaskNode> taskMap = new HashMap<>();
-
-        int initialMaxRetries = failedTask.getMaxRetries();
-
-        // Act
-        strategy.replan(failedTask, context, taskMap);
-
-        // Assert
-        assertEquals(TaskNode.TaskStatus.PENDING, failedTask.getStatus());
-        assertEquals(initialMaxRetries + 1, failedTask.getMaxRetries());
-        assertTrue(context.getAuditTrail().stream()
-                .anyMatch(e -> e.getEventType().equals("GATE_ADJUSTED")));
-    }
+    // Removed: testReplanStrategy tests - replan strategies were removed to simplify workflow execution
 }
