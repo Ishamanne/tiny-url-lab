@@ -14,12 +14,12 @@ public class GreenfieldScenario implements WorkflowScenario {
 
     @Override
     public String getScenarioName() {
-        return "Greenfield: URL Shortener System";
+        return "greenfield";
     }
 
     @Override
     public String getDescription() {
-        return "Build a complete URL shortener service from scratch with core APIs, analytics, and reliability features";
+        return "Greenfield: Build a complete URL shortener service from scratch with core APIs, analytics, and reliability features";
     }
 
     @Override

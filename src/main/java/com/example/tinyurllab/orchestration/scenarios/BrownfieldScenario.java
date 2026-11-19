@@ -14,12 +14,12 @@ public class BrownfieldScenario implements WorkflowScenario {
 
     @Override
     public String getScenarioName() {
-        return "Brownfield: Add Rate Limiting Feature";
+        return "brownfield";
     }
 
     @Override
     public String getDescription() {
-        return "Enhance existing URL shortener with rate limiting to prevent abuse";
+        return "Brownfield: Enhance existing URL shortener with rate limiting to prevent abuse";
     }
 
     @Override

@@ -14,12 +14,12 @@ public class AmbiguousScenario implements WorkflowScenario {
 
     @Override
     public String getScenarioName() {
-        return "Ambiguous: Performance Improvement";
+        return "ambiguous";
     }
 
     @Override
     public String getDescription() {
-        return "Handle vague requirement 'improve performance' by identifying ambiguities and proposing solutions";
+        return "Ambiguous: Handle vague requirement 'improve performance' by identifying ambiguities and proposing solutions";
     }
 
     @Override
