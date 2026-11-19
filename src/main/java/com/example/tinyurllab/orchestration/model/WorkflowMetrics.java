@@ -1,6 +1,7 @@
 package com.example.tinyurllab.orchestration.model;
 
 import lombok.Data;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -10,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Tracks workflow reliability metrics: success rate, retries, MTTR, latency
  */
 @Data
+@Component
 public class WorkflowMetrics {
     private final AtomicInteger totalExecutions = new AtomicInteger(0);
     private final AtomicInteger successfulExecutions = new AtomicInteger(0);

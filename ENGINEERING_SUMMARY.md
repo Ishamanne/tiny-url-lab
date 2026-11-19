@@ -12,21 +12,33 @@ This project delivers a **production-grade prototype** of an Agentic Software En
 
 ### High-Level Design
 
-The system is architected in two primary layers:
+**IMPORTANT:** This project contains **two independent systems**:
 
-#### Orchestration Layer (Agentic Core)
+#### System 1: Orchestration Layer (The Assignment - Agentic SDLC Automation)
+**Purpose:** Demonstrates how AI agents automate software development lifecycle
+
 - **WorkflowOrchestrator**: DAG-based execution engine with parallel task scheduling
+- **OrchestrationController**: REST API for triggering/inspecting workflows (`/api/orchestration/*`)
 - **TaskNode**: Stateful task representation with dependencies, gates, and context
 - **WorkflowContext**: Cross-stage context preservation and decision lineage
 - **Quality Gates**: Entry/exit validation for security, quality, and compliance
 - **PolicyGuardrails**: Security and compliance enforcement mechanisms
 - **WorkflowMetrics**: Reliability tracking (success rate, MTTR, retries)
+- **Target Users:** Developers/DevOps testing agentic automation
+- **Role:** Meta-layer that would BUILD/ENHANCE applications
 
-#### Application Layer (URL Shortener)
+#### System 2: Application Layer (The Product - URL Shortener)
+**Purpose:** Production-ready URL shortening service (the output the orchestration system would create)
+
+- **UrlShortenerController**: REST API for URL operations (`/api/shorten`, `/api/urls/*`)
 - **Domain Model**: ShortUrl and UrlAnalytics JPA entities
 - **Service Layer**: Business logic for URL shortening and analytics
 - **Controller Layer**: RESTful APIs with validation and error handling
 - **Repository Layer**: Spring Data JPA for persistence
+- **Target Users:** End users creating/using short URLs
+- **Role:** Production application
+
+> **Key Point:** The orchestration system (System 1) is NOT needed to use the URL shortener (System 2). The orchestration layer demonstrates how AI agents would automate building/enhancing applications like the URL shortener.
 
 ### Key Architectural Decisions
 
@@ -37,6 +49,62 @@ The system is architected in two primary layers:
 | **In-memory database (H2)** | Fast setup, zero config for prototype | Data lost on restart |
 | **Thread pool execution** | Simple parallelism on single node | Limited scalability vs. distributed systems |
 | **Mock quality gates** | Focus on orchestration architecture | Not production-realistic |
+| **Deterministic agent simulation** | Reproducible local execution without LLM API costs | Not connected to live LLM for demo |
+
+### Agent Execution Model
+
+**Current Implementation (Deterministic Simulation):**
+- Agent tasks are **deterministically simulated** for local reproducibility
+- No external LLM SDK dependencies in `build.gradle`
+- Task logic in `WorkflowOrchestrator.executeTaskLogic()` produces mock outputs
+- Approval gates auto-approve for demo purposes
+- Quality gates return pre-configured pass/fail results
+
+**Purpose:** Demonstrate the orchestration architecture, control flow, and governance without requiring:
+- LLM API keys (OpenAI, Anthropic, etc.)
+- Network connectivity
+- API rate limits or costs
+
+**Production Integration Pattern:**
+```java
+// Current (Deterministic Simulation)
+private void performCodeGeneration(TaskNode task, WorkflowContext context) {
+    log.info("Generating production code...");
+    task.getOutputs().add("CODE_GENERATED");
+    task.getContext().put("files_generated", 5);
+}
+
+// Production (Live LLM Integration via Adapter Pattern)
+interface AgentExecutor {
+    TaskResult execute(TaskNode task, WorkflowContext context);
+}
+
+class ClaudeAgentExecutor implements AgentExecutor {
+    private final ClaudeAPI claudeAPI; // anthropic-sdk-java
+
+    @Override
+    public TaskResult execute(TaskNode task, WorkflowContext context) {
+        String prompt = buildPromptFromContext(task, context);
+        ClaudeResponse response = claudeAPI.complete(prompt);
+        return parseResponseToTaskResult(response);
+    }
+}
+
+class OpenAIAgentExecutor implements AgentExecutor {
+    private final OpenAIAPI openaiAPI; // openai-java
+    // Similar implementation...
+}
+```
+
+**Integration Checklist for Production:**
+1. Add LLM SDK to `build.gradle`: `implementation 'com.anthropic:anthropic-sdk-java:1.x'`
+2. Create `AgentExecutor` interface and implementations
+3. Inject `AgentExecutor` into `WorkflowOrchestrator`
+4. Replace mock task logic with real LLM calls
+5. Configure API keys in `application.yml` (externalized secrets)
+6. Implement prompt templates for each task type
+7. Add response parsing and validation
+8. Handle LLM rate limits and retries
 
 ---
 

@@ -469,6 +469,10 @@ public class WorkflowOrchestrator {
         return activeWorkflows.get(workflowId);
     }
 
+
+    public Map<String, WorkflowContext> getAllWorkflowContexts() {
+        return new HashMap<>(activeWorkflows);
+    }
     public WorkflowMetrics getGlobalMetrics() {
         return globalMetrics;
     }

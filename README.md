@@ -8,7 +8,10 @@ This project fulfills the **Agentic Software Engineering System** assignment req
 - **Workflow Orchestration**: DAG-based execution engine with parallel task scheduling
 - **Three Scenarios**: Greenfield (build from scratch), Brownfield (enhance existing), Ambiguous (clarify vague requirements)
 - **Governance Controls**: Entry/exit gates, human approval checkpoints, policy guardrails
-- **Production-Quality Output**: Working URL shortener service with 33 Java classes, 14+ tests, comprehensive documentation
+- **Production-Quality Output**: Working URL shortener service with 33 Java classes, 31+ tests, comprehensive documentation
+- **REST API**: Orchestration endpoints for triggering workflows, inspecting status, approving gates, and retrieving metrics
+
+> **Note on Agent Execution:** This prototype uses **deterministic simulation** for agent tasks to enable local reproducibility without requiring LLM API keys. The orchestration architecture is production-ready and includes clear integration patterns for plugging in live LLM providers (Claude, GPT-4, etc.). See [ENGINEERING_SUMMARY.md](ENGINEERING_SUMMARY.md#agent-execution-model) for details.
 
 ## Features
 
@@ -26,6 +29,59 @@ This project fulfills the **Agentic Software Engineering System** assignment req
 - **API Documentation**: Interactive Swagger UI with OpenAPI 3.0 spec
 - **Validation**: Input validation and comprehensive error handling
 - **Database**: H2 in-memory database with JPA/Hibernate
+
+## 🏗️ Architecture Overview
+
+This project contains **two independent systems**:
+
+### 1️⃣ **URL Shortener Application** (The Product)
+- **Purpose:** Production-ready URL shortening service
+- **Endpoints:** `/api/shorten`, `/api/urls/*`
+- **Controller:** `UrlShortenerController`
+- **For:** End users creating/managing short URLs
+- **Auth:** USER (read) / ADMIN (write) roles
+
+### 2️⃣ **Orchestration System** (The Assignment Requirement)
+- **Purpose:** AI-driven SDLC workflow automation (meta-layer)
+- **Endpoints:** `/api/orchestration/*`
+- **Controller:** `OrchestrationController`
+- **For:** Developers/reviewers testing agentic workflows
+- **Auth:** ADMIN only
+- **Note:** This is NOT needed to use the URL shortener - it's the system that would BUILD applications like the URL shortener
+
+> **Important:** The orchestration API demonstrates how AI agents would automate building/enhancing applications like the URL shortener. End users never interact with it - only developers/DevOps teams testing the agentic SDLC automation.
+
+### 📊 Visual Separation
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     URL SHORTENER APPLICATION                    │
+│                         (The Product)                            │
+├─────────────────────────────────────────────────────────────────┤
+│  Controller: UrlShortenerController                             │
+│  Endpoints:  /api/shorten, /api/urls/*                          │
+│  Users:      End users creating/using short URLs                │
+│  Purpose:    Production URL shortening service                  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕️
+                    (completely independent)
+                              ↕️
+┌─────────────────────────────────────────────────────────────────┐
+│                   ORCHESTRATION SYSTEM                           │
+│              (AI-Driven SDLC Automation Layer)                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Controller: OrchestrationController                            │
+│  Endpoints:  /api/orchestration/*                               │
+│  Users:      Developers testing agentic workflows               │
+│  Purpose:    Demonstrates how AI agents BUILD apps like above   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Example Workflow:**
+- **End User:** `POST /api/shorten` → Creates short URL ✅
+- **Developer/Reviewer:** `POST /api/orchestration/run/brownfield` → AI agents enhance URL shortener (meta-operation) ✅
+
+---
 
 ## Quick Start
 
@@ -74,6 +130,8 @@ The application uses HTTP Basic Authentication with role-based access control:
 
 ### Endpoint Security
 
+#### **URL Shortener Endpoints** (End-user facing)
+
 | Endpoint | Method | Access | Description |
 |----------|--------|--------|-------------|
 | `/{shortCode}` | GET | Public | Redirect to original URL (no auth required) |
@@ -85,6 +143,19 @@ The application uses HTTP Basic Authentication with role-based access control:
 | `/api/urls` | DELETE | ADMIN | Delete short URL |
 | `/swagger-ui/**` | GET | Public | Swagger UI documentation |
 | `/actuator/**` | GET | Public | Metrics and health endpoints |
+
+#### **Orchestration Endpoints** (Developer/reviewer facing - NOT for URL shortening)
+
+| Endpoint | Method | Access | Description |
+|----------|--------|--------|-------------|
+| `/api/orchestration/run/{scenario}` | POST | ADMIN | Trigger AI workflow scenario |
+| `/api/orchestration/status/{workflowId}` | GET | ADMIN | Get workflow execution status |
+| `/api/orchestration/approve/{workflowId}/{taskId}` | POST | ADMIN | Approve HITL gate |
+| `/api/orchestration/metrics` | GET | ADMIN | Get workflow reliability metrics |
+| `/api/orchestration/scenarios` | GET | ADMIN | List all workflow scenarios |
+| `/api/orchestration/workflows` | GET | ADMIN | List all workflow executions |
+
+> ⚠️ **For Reviewers:** The `/api/orchestration/*` endpoints are for testing the agentic SDLC automation system (the assignment requirement). They are NOT part of the URL shortener functionality.
 
 ## API Usage Examples
 

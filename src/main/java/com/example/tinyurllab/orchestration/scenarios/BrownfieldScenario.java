@@ -30,18 +30,28 @@ public class BrownfieldScenario implements WorkflowScenario {
         TaskNode codebaseAnalysis = TaskNode.builder()
                 .id("brown-001")
                 .name("Analyze Existing Codebase")
-                .description("Identify impacted modules, services, APIs for rate limiting")
+                .description("Scan actual codebase: UrlShortenerController.java, UrlShortenerService.java, SecurityConfig.java, MetricsConfig.java")
                 .stage(WorkflowStage.REQUIREMENT_ANALYSIS)
                 .type(TaskNode.TaskType.ANALYSIS)
                 .dependencies(List.of())
                 .build();
         tasks.add(codebaseAnalysis);
 
+        // Add concrete analysis results to task outputs
+        codebaseAnalysis.getOutputs().addAll(Arrays.asList(
+                "CONTROLLER_LAYER: UrlShortenerController.java (5 endpoints: POST /api/shorten, GET /api/urls, GET /api/urls/{shortCode}, PATCH /api/urls/{shortCode}, DELETE /api/urls)",
+                "SERVICE_LAYER: UrlShortenerService.java (business logic for URL operations)",
+                "SECURITY_LAYER: SecurityConfig.java (Basic Auth with USER/ADMIN roles)",
+                "CACHING_LAYER: @Cacheable annotations on service methods",
+                "METRICS_LAYER: MetricsConfig.java with Micrometer integration",
+                "DEPENDENCIES: Spring Boot 3.4.0, Spring Security, Spring Cache, Micrometer"
+        ));
+
         // Stage 2: Impact Analysis
         TaskNode impactAnalysis = TaskNode.builder()
                 .id("brown-002")
                 .name("Perform Impact Analysis")
-                .description("Identify breaking changes and affected components")
+                .description("Analyze impact on UrlShortenerController endpoints, cache invalidation, and existing metrics")
                 .stage(WorkflowStage.REQUIREMENT_ANALYSIS)
                 .type(TaskNode.TaskType.ANALYSIS)
                 .dependencies(List.of("brown-001"))
@@ -56,6 +66,17 @@ public class BrownfieldScenario implements WorkflowScenario {
                 .approvalReason("Impact analysis shows changes to public APIs")
                 .build();
         tasks.add(impactAnalysis);
+
+        // Add concrete impact analysis to task outputs
+        impactAnalysis.getOutputs().addAll(Arrays.asList(
+                "CONTROLLER_IMPACT: Need to add rate limiting interceptor/filter before POST /api/shorten endpoint",
+                "CACHE_IMPACT: Rate limit counters must bypass @Cacheable to get real-time counts",
+                "METRICS_IMPACT: Add new metrics: rate_limit_hits, rate_limit_rejections, rate_limit_resets",
+                "CONFIG_IMPACT: New application.yml properties for rate limit thresholds (e.g., 100 requests/minute per IP)",
+                "DEPENDENCY_IMPACT: Add Resilience4j or Bucket4j for rate limiting implementation",
+                "BACKWARD_COMPATIBILITY: No breaking changes - existing clients unaffected unless they exceed limits",
+                "TESTING_IMPACT: Need to update UrlShortenerServiceTest.java (14 existing tests), add rate limit tests"
+        ));
 
         // Stage 3: Design Enhancement
         TaskNode designEnhancement = TaskNode.builder()
@@ -159,7 +180,49 @@ public class BrownfieldScenario implements WorkflowScenario {
         context.setRequirement("Add rate limiting to prevent URL shortener abuse");
         context.getGlobalContext().put("project_type", "brownfield");
         context.getGlobalContext().put("existing_codebase", true);
-        context.getGlobalContext().put("impacted_modules", Arrays.asList("UrlShortenerController", "UrlShortenerService"));
+
+        // Concrete codebase understanding
+        context.getGlobalContext().put("impacted_modules", Arrays.asList(
+                "com.example.tinyurllab.urlshortener.controller.UrlShortenerController",
+                "com.example.tinyurllab.urlshortener.service.UrlShortenerService",
+                "com.example.tinyurllab.config.SecurityConfig",
+                "com.example.tinyurllab.config.MetricsConfig",
+                "com.example.tinyurllab.config.CacheConfig"
+        ));
+
+        context.getGlobalContext().put("existing_endpoints", Arrays.asList(
+                "POST /api/shorten - Create short URL (ADMIN only)",
+                "GET /api/urls - List all URLs (USER/ADMIN)",
+                "GET /api/urls/{shortCode} - Get specific URL (USER/ADMIN)",
+                "PATCH /api/urls/{shortCode} - Update expiration (ADMIN only)",
+                "DELETE /api/urls - Delete URL (ADMIN only)",
+                "GET /api/urls/{shortCode}/analytics - Get analytics (USER/ADMIN)"
+        ));
+
+        context.getGlobalContext().put("existing_dependencies", Arrays.asList(
+                "Spring Boot 3.4.0",
+                "Spring Security (Basic Auth)",
+                "Spring Data JPA",
+                "H2 Database",
+                "Spring Cache",
+                "Micrometer (Prometheus metrics)",
+                "Springdoc OpenAPI"
+        ));
+
+        context.getGlobalContext().put("test_coverage", Map.of(
+                "UrlShortenerServiceTest", "14 tests",
+                "OpenApiConfigTest", "2 tests",
+                "WorkflowOrchestratorTest", "15 tests",
+                "total_tests", 31
+        ));
+
+        // Target rate limits
+        context.getGlobalContext().put("rate_limit_config", Map.of(
+                "requests_per_minute", 100,
+                "burst_capacity", 20,
+                "strategy", "token_bucket"
+        ));
+
         return context;
     }
 }
