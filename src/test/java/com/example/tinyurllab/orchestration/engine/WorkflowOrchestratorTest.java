@@ -1,8 +1,12 @@
 package com.example.tinyurllab.orchestration.engine;
 
 import com.example.tinyurllab.orchestration.model.*;
+import com.example.tinyurllab.urlshortener.service.UrlShortenerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,13 +15,17 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class WorkflowOrchestratorTest {
+
+    @Mock
+    private UrlShortenerService urlShortenerService;
 
     private WorkflowOrchestrator orchestrator;
 
     @BeforeEach
     void setUp() {
-        orchestrator = new WorkflowOrchestrator();
+        orchestrator = new WorkflowOrchestrator(urlShortenerService);
     }
 
     @Test
