@@ -167,18 +167,75 @@ The orchestration engine implements a sophisticated DAG-based execution model:
 
 5. **Access the application**:
    - Application: `http://localhost:8080`
+   - Swagger UI: `http://localhost:8080/swagger-ui.html`
    - H2 Console: `http://localhost:8080/h2-console`
      - JDBC URL: `jdbc:h2:mem:tinylinkdb`
      - Username: `sa`
      - Password: (empty)
+
+## Authentication & Authorization
+
+The application uses HTTP Basic Authentication with role-based access control:
+
+### Users
+- **User Account**: `user:user123` (Role: USER)
+  - Can view all URLs and analytics
+  - Cannot create or delete URLs
+
+- **Admin Account**: `admin:admin123` (Roles: ADMIN, USER)
+  - Full access to all operations
+  - Can create, view, and delete URLs
+
+### Endpoint Security
+
+| Endpoint | Method | Access | Description |
+|----------|--------|--------|-------------|
+| `/{shortCode}` | GET | Public | Redirect to original URL (no auth required) |
+| `/api/urls` | GET | USER, ADMIN | List all short URLs |
+| `/api/urls/{shortCode}` | GET | USER, ADMIN | Get short URL details |
+| `/api/urls/{shortCode}/analytics` | GET | USER, ADMIN | Get analytics data |
+| `/api/shorten` | POST | ADMIN | Create new short URL |
+| `/api/urls/{shortCode}` | DELETE | ADMIN | Delete short URL |
+| `/swagger-ui/**` | GET | Public | Swagger UI documentation |
+| `/v3/api-docs/**` | GET | Public | OpenAPI specification |
+
+### Using Authentication
+
+#### With cURL
+```bash
+# Create short URL (requires ADMIN)
+curl -X POST http://localhost:8080/api/shorten \
+  -u admin:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{"originalUrl": "https://example.com"}'
+
+# Get URLs (requires USER or ADMIN)
+curl -X GET http://localhost:8080/api/urls \
+  -u user:user123
+
+# Redirect (no authentication needed)
+curl -L http://localhost:8080/abc123
+```
+
+#### With Swagger UI
+1. Navigate to `http://localhost:8080/swagger-ui.html`
+2. Click the **Authorize** button (lock icon)
+3. Enter username and password:
+   - For read operations: `user:user123`
+   - For all operations: `admin:admin123`
+4. Click **Authorize** and **Close**
+5. All subsequent API calls will include authentication
 
 ## API Documentation
 
 ### URL Shortener APIs
 
 #### Create Short URL
+**Authentication Required**: ADMIN role
+
 ```http
 POST /api/shorten
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
 Content-Type: application/json
 
 {
@@ -203,6 +260,8 @@ Response: 201 Created
 ```
 
 #### Redirect to Original URL
+**Authentication Required**: None (Public endpoint)
+
 ```http
 GET /{shortCode}
 
@@ -210,8 +269,11 @@ Response: 302 Redirect to original URL
 ```
 
 #### Get Short URL Details
+**Authentication Required**: USER or ADMIN role
+
 ```http
 GET /api/urls/{shortCode}
+Authorization: Basic dXNlcjp1c2VyMTIz
 
 Response: 200 OK
 {
@@ -224,8 +286,11 @@ Response: 200 OK
 ```
 
 #### Get Analytics
+**Authentication Required**: USER or ADMIN role
+
 ```http
 GET /api/urls/{shortCode}/analytics
+Authorization: Basic dXNlcjp1c2VyMTIz
 
 Response: 200 OK
 {
@@ -247,16 +312,30 @@ Response: 200 OK
 ```
 
 #### List All URLs
+**Authentication Required**: USER or ADMIN role
+
 ```http
 GET /api/urls
+Authorization: Basic dXNlcjp1c2VyMTIz
 
 Response: 200 OK
-[...]
+[
+  {
+    "shortCode": "abc123",
+    "shortUrl": "http://localhost:8080/abc123",
+    "originalUrl": "https://example.com/very/long/url",
+    "clickCount": 42,
+    "active": true
+  }
+]
 ```
 
 #### Delete Short URL
+**Authentication Required**: ADMIN role
+
 ```http
 DELETE /api/urls/{shortCode}
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
 
 Response: 204 No Content
 ```
