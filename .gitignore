@@ -1,37 +1,32 @@
-HELP.md
-.gradle
+# Gradle
+.gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+!gradle-wrapper.jar
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### IntelliJ IDEA ###
-.idea
-*.iws
+# IDE
+.idea/
 *.iml
-*.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
+*.iws
 .vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated files
+*.class
+*.log
+*.tmp
+
+# Test outputs
+/test-output/
+
+# Generated during commands
+api-docs/
+backups/
+metrics-snapshots/
+Dockerfile
+
+# Sensitive
+*.env
+*.properties.local

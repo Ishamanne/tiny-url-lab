@@ -1,6 +1,14 @@
-# URL Shortener Service
+# Agentic Software Engineering System - URL Shortener
 
-A production-grade URL shortener built with Spring Boot, featuring caching, metrics monitoring, and role-based access control.
+A **complete demonstration** of an AI-driven SDLC orchestration system that automates software development from requirements to deployment. This project showcases how AI agents can intelligently manage the full software engineering lifecycle with governance, approval gates, and human oversight.
+
+## 🎯 Assignment Context
+
+This project fulfills the **Agentic Software Engineering System** assignment requirements, demonstrating:
+- **Workflow Orchestration**: DAG-based execution engine with parallel task scheduling
+- **Three Scenarios**: Greenfield (build from scratch), Brownfield (enhance existing), Ambiguous (clarify vague requirements)
+- **Governance Controls**: Entry/exit gates, human approval checkpoints, policy guardrails
+- **Production-Quality Output**: Working URL shortener service with 33 Java classes, 14+ tests, comprehensive documentation
 
 ## Features
 
@@ -336,3 +344,34 @@ Apache 2.0
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## 🤖 AI Orchestration Scenarios
+
+The project includes three demonstration scenarios showing how AI agents orchestrate the SDLC:
+
+### 1. Greenfield Scenario - Build New Feature
+```bash
+./.claude/commands/run-greenfield-scenario.sh "Build a URL shortener with QR codes"
+```
+Demonstrates building a system from scratch with 11 tasks across 7 SDLC stages.
+
+### 2. Brownfield Scenario - Enhance Existing System
+```bash
+./.claude/commands/run-brownfield-scenario.sh "Add rate limiting to prevent API abuse"
+```
+Demonstrates adding features to existing codebase with impact analysis and regression testing.
+
+### 3. Ambiguous Scenario - Clarify Vague Requirements
+```bash
+./.claude/commands/run-ambiguous-scenario.sh "Make the system more reliable"
+```
+Demonstrates requirement clarification, option evaluation, and human decision points.
+
+Each scenario shows:
+- ✅ Requirement parsing and normalization
+- ✅ Task decomposition with dependency graphs
+- ✅ Parallel execution where possible
+- ✅ Human approval gates for critical decisions
+- ✅ Quality gates (security, testing, compliance)
+- ✅ Audit trail and metrics collection
+

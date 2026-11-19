@@ -1,6 +1,0 @@
-{
-  "timestamp": "2026-11-19T16:18:45Z",
-  "health": {"status":"UP"},
-  "jvm_memory": {"status":500,"message":"An unexpected error occurred","timestamp":"2026-11-19T16:18:45.801071Z"},
-  "http_requests": {"status":500,"message":"An unexpected error occurred","timestamp":"2026-11-19T16:18:45.833271Z"}
-}
