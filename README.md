@@ -73,7 +73,8 @@ The application uses HTTP Basic Authentication with role-based access control:
 | `/api/urls/{shortCode}` | GET | USER, ADMIN | Get short URL details |
 | `/api/urls/{shortCode}/analytics` | GET | USER, ADMIN | Get analytics data |
 | `/api/shorten` | POST | ADMIN | Create new short URL |
-| `/api/urls/{shortCode}` | DELETE | ADMIN | Delete short URL |
+| `/api/urls/{shortCode}` | PATCH | ADMIN | Update short URL expiration |
+| `/api/urls` | DELETE | ADMIN | Delete short URL |
 | `/swagger-ui/**` | GET | Public | Swagger UI documentation |
 | `/actuator/**` | GET | Public | Metrics and health endpoints |
 
@@ -144,10 +145,24 @@ curl -X GET http://localhost:8080/api/urls/mylink/analytics \
 }
 ```
 
+### Update URL (ADMIN only)
+```bash
+curl -X PATCH http://localhost:8080/api/urls/mylink \
+  -u admin:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "expiresInMinutes": 60
+  }'
+```
+
 ### Delete URL (ADMIN only)
 ```bash
-curl -X DELETE http://localhost:8080/api/urls/mylink \
-  -u admin:admin123
+curl -X DELETE http://localhost:8080/api/urls \
+  -u admin:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shortCode": "mylink"
+  }'
 ```
 
 ### Redirect to Original URL (Public)
@@ -167,12 +182,27 @@ The application exposes metrics through Spring Actuator:
 
 ### Custom Metrics
 The application tracks custom latency metrics for all endpoints:
-- `url.shorten` - Create short URL latency
-- `url.getAll` - Get all URLs latency
-- `url.getOne` - Get single URL latency
-- `url.analytics` - Get analytics latency
-- `url.delete` - Delete URL latency
-- `url.redirect` - Redirect latency
+- `url.shorten` - POST /api/shorten (Create short URL)
+- `url.getAll` - GET /api/urls (Get all URLs)
+- `url.getOne` - GET /api/urls/{shortCode} (Get single URL)
+- `url.analytics` - GET /api/urls/{shortCode}/analytics (Get analytics)
+- `url.update` - PATCH /api/urls/{shortCode} (Update URL)
+- `url.delete` - DELETE /api/urls (Delete URL)
+- `url.redirect` - GET /{shortCode} (Redirect)
+
+### Prometheus Metrics
+Access Prometheus-formatted metrics at `http://localhost:8080/actuator/prometheus`:
+- `url_shorten_seconds_count` - Total number of short URL creations
+- `url_shorten_seconds_sum` - Total time spent creating short URLs
+- `url_shorten_seconds_max` - Maximum time for a single creation
+- `url_getAll_seconds_*` - Metrics for listing all URLs
+- `url_getOne_seconds_*` - Metrics for getting single URL
+- `url_analytics_seconds_*` - Metrics for analytics requests
+- `url_update_seconds_*` - Metrics for URL updates
+- `url_delete_seconds_*` - Metrics for URL deletions
+- `url_redirect_seconds_*` - Metrics for redirects
+
+Each metric includes labels: `application`, `class`, `method`, and `exception`
 
 ### View Metrics
 ```bash
@@ -247,9 +277,7 @@ server.port=8080
 spring.datasource.url=jdbc:h2:mem:tinylinkdb
 spring.h2.console.enabled=true
 
-# Security
-spring.security.user.name=admin
-spring.security.user.password=admin123
+
 
 # Application
 app.base-url=http://localhost:8080

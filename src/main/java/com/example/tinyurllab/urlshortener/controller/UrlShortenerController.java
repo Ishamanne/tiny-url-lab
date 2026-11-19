@@ -2,6 +2,8 @@ package com.example.tinyurllab.urlshortener.controller;
 
 import com.example.tinyurllab.urlshortener.dto.AnalyticsResponse;
 import com.example.tinyurllab.urlshortener.dto.CreateShortUrlRequest;
+import com.example.tinyurllab.urlshortener.dto.DeleteShortUrlRequest;
+import com.example.tinyurllab.urlshortener.dto.UpdateShortUrlRequest;
 import com.example.tinyurllab.urlshortener.dto.ShortUrlResponse;
 import com.example.tinyurllab.urlshortener.service.UrlShortenerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +18,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import io.micrometer.core.annotation.Timed;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -37,10 +41,17 @@ public class UrlShortenerController {
     @Operation(
             summary = "Create a short URL",
             description = "Creates a shortened URL from an original URL. Requires ADMIN role. This operation invalidates the URL caches and tracks latency metrics.",
-            security = @SecurityRequirement(name = "basicAuth"))
+            security = @SecurityRequirement(name = "basicAuth"),
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                content = @Content(
+                    examples = @ExampleObject(
+                        value = "{\"originalUrl\":\"https://example.com\"}"
+                    )
+                )
+            ))
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Short URL created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "400", description = "Invalid request - check validation errors"),
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role")
     })
@@ -109,22 +120,51 @@ public class UrlShortenerController {
     }
 
     @Operation(
-            summary = "Delete a short URL",
-            description = "Deletes a shortened URL by its short code and invalidates all related caches. Requires ADMIN role.",
-            security = @SecurityRequirement(name = "basicAuth"))
+            summary = "Update a short URL",
+            description = "Updates a shortened URL's expiration time. Requires ADMIN role.",
+            security = @SecurityRequirement(name = "basicAuth"),
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                content = @Content(
+                    examples = @ExampleObject(
+                        value = "{\"expiresInMinutes\":60}"
+                    )
+                )
+            ))
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Short URL deleted successfully"),
+            @ApiResponse(responseCode = "200", description = "Short URL updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
             @ApiResponse(responseCode = "404", description = "Short URL not found")
     })
     @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/api/urls/{shortCode}")
+    @PatchMapping("/api/urls/{shortCode}")
+    @CacheEvict(value = {"shortUrls", "shortUrl", "analytics"}, allEntries = true)
+    @Timed(value = "url.update", description = "Time taken to update URL")
+    public ResponseEntity<ShortUrlResponse> updateShortUrl(
+            @Parameter(description = "Short code of the URL") @PathVariable String shortCode,
+            @Valid @RequestBody UpdateShortUrlRequest request) {
+        ShortUrlResponse response = urlShortenerService.updateShortUrl(shortCode, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Delete a short URL",
+            description = "Marks a shortened URL as expired/deleted. Requires ADMIN role.",
+            security = @SecurityRequirement(name = "basicAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Short URL deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+            @ApiResponse(responseCode = "404", description = "Short URL not found")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/api/urls")
     @CacheEvict(value = {"shortUrls", "shortUrl", "analytics"}, allEntries = true)
     @Timed(value = "url.delete", description = "Time taken to delete URL")
-    public ResponseEntity<Void> deleteShortUrl(
-            @Parameter(description = "Short code of the URL") @PathVariable String shortCode) {
-        urlShortenerService.deleteShortUrl(shortCode);
+    public ResponseEntity<Void> deleteShortUrl(@Valid @RequestBody DeleteShortUrlRequest request) {
+        urlShortenerService.deleteShortUrl(request.getShortCode());
         return ResponseEntity.noContent().build();
     }
 
@@ -135,6 +175,7 @@ public class UrlShortenerController {
             @ApiResponse(responseCode = "410", description = "URL expired")
     })
     @GetMapping("/{shortCode}")
+    @CacheEvict(value = {"shortUrl", "shortUrls", "analytics"}, allEntries = true)
     @Timed(value = "url.redirect", description = "Time taken to redirect to original URL")
     public void redirect(
             @Parameter(description = "Short code of the URL") @PathVariable String shortCode,

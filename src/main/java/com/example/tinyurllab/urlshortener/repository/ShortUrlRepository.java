@@ -18,6 +18,9 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
 
     boolean existsByShortCode(String shortCode);
 
+    @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM ShortUrl s WHERE s.shortCode = :shortCode AND s.status = 'ACTIVE'")
+    boolean existsByShortCodeAndActive(String shortCode);
+
     List<ShortUrl> findByCreatedBy(String createdBy);
 
     @Query("SELECT s FROM ShortUrl s WHERE s.status = :status AND (s.expiresAt IS NULL OR s.expiresAt > :now)")

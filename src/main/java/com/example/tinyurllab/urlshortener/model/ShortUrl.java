@@ -56,13 +56,7 @@ public class ShortUrl {
     }
 
     public UrlStatus getComputedStatus() {
-        if (status == UrlStatus.DELETED) {
-            return UrlStatus.DELETED;
-        }
-        if (expiresAt != null && Instant.now().isAfter(expiresAt)) {
-            return UrlStatus.EXPIRED;
-        }
-        return UrlStatus.ACTIVE;
+        return status;
     }
 
     public boolean isExpired() {

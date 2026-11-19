@@ -3,6 +3,7 @@ package com.example.tinyurllab.urlshortener.service;
 import com.example.tinyurllab.urlshortener.dto.AnalyticsResponse;
 import com.example.tinyurllab.urlshortener.dto.CreateShortUrlRequest;
 import com.example.tinyurllab.urlshortener.dto.ShortUrlResponse;
+import com.example.tinyurllab.urlshortener.dto.UpdateShortUrlRequest;
 import com.example.tinyurllab.urlshortener.exception.UrlNotFoundException;
 import com.example.tinyurllab.urlshortener.exception.UrlExpiredException;
 import com.example.tinyurllab.urlshortener.model.ShortUrl;
@@ -14,6 +15,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,27 +48,41 @@ public class UrlShortenerService {
 
         String shortCode;
         if (request.getCustomAlias() != null && !request.getCustomAlias().isBlank()) {
-            if (shortUrlRepository.existsByShortCode(request.getCustomAlias())) {
-                throw new IllegalArgumentException("Custom alias already exists");
+            // Check if alias exists and is active (not expired or deleted)
+            if (shortUrlRepository.existsByShortCodeAndActive(request.getCustomAlias())) {
+                throw new IllegalArgumentException("Custom alias already exists and is active");
             }
+
+            // Delete any expired or deleted records with the same shortCode to allow reuse
+            shortUrlRepository.findByShortCode(request.getCustomAlias())
+                    .ifPresent(existingUrl -> {
+                        if (existingUrl.isExpired() || existingUrl.getStatus() == UrlStatus.EXPIRED) {
+                            shortUrlRepository.delete(existingUrl);
+                            log.info("Deleted expired/inactive URL with shortCode: {}", request.getCustomAlias());
+                        }
+                    });
+
             shortCode = request.getCustomAlias();
         } else {
             shortCode = generateUniqueShortCode();
         }
 
-        // Set expiration based on expiresInMinutes or default to 8 days
+        // Set expiration based on expiresInMinutes or default to 7 minutes
         Instant expiresAt;
         if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
             expiresAt = Instant.now().plus(request.getExpiresInMinutes(), ChronoUnit.MINUTES);
         } else {
-            expiresAt = Instant.now().plus(8, ChronoUnit.DAYS);
+            expiresAt = Instant.now().plus(7, ChronoUnit.MINUTES);
         }
+
+        // Get authenticated username from security context
+        String createdBy = getAuthenticatedUsername();
 
         ShortUrl shortUrl = ShortUrl.builder()
                 .shortCode(shortCode)
                 .originalUrl(request.getOriginalUrl())
                 .expiresAt(expiresAt)
-                .createdBy(request.getCreatedBy())
+                .createdBy(createdBy)
                 .clickCount(0L)
                 .build();
 
@@ -77,18 +94,21 @@ public class UrlShortenerService {
 
     @Transactional
     public String resolveShortCode(String shortCode, HttpServletRequest request) {
-        log.debug("Resolving short code: {}", shortCode);
+        log.info("Resolving short code: {}", shortCode);
 
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("Short URL not found: " + shortCode));
 
-        UrlStatus computedStatus = shortUrl.getComputedStatus();
+        log.info("Current click count before increment: {}", shortUrl.getClickCount());
 
-        if (computedStatus == UrlStatus.DELETED) {
-            throw new UrlNotFoundException("Short URL has been deleted: " + shortCode);
+        // Check if expired and update status
+        if (shortUrl.isExpired() && shortUrl.getStatus() == UrlStatus.ACTIVE) {
+            shortUrl.setStatus(UrlStatus.EXPIRED);
+            shortUrlRepository.save(shortUrl);
+            throw new UrlExpiredException("Short URL has expired: " + shortCode);
         }
 
-        if (computedStatus == UrlStatus.EXPIRED) {
+        if (shortUrl.getStatus() == UrlStatus.EXPIRED) {
             throw new UrlExpiredException("Short URL has expired: " + shortCode);
         }
 
@@ -97,7 +117,9 @@ public class UrlShortenerService {
 
         // Increment click count
         shortUrl.incrementClickCount();
+        log.info("Click count after increment: {}", shortUrl.getClickCount());
         shortUrlRepository.save(shortUrl);
+        log.info("Saved short URL with click count: {}", shortUrl.getClickCount());
 
         return shortUrl.getOriginalUrl();
     }
@@ -123,16 +145,9 @@ public class UrlShortenerService {
         }
 
         Long totalClicks = analyticsRepository.countByShortCode(shortCode);
-        Long clicks24h = analyticsRepository.countByShortCodeSince(shortCode, Instant.now().minus(24, ChronoUnit.HOURS));
-        Long clicks7d = analyticsRepository.countByShortCodeSince(shortCode, Instant.now().minus(7, ChronoUnit.DAYS));
-
-        Map<String, Long> countryDistribution = analyticsRepository.getCountryStatistics(shortCode).stream()
-                .collect(Collectors.toMap(
-                        arr -> (String) arr[0],
-                        arr -> (Long) arr[1]
-                ));
 
         Map<String, Long> deviceDistribution = analyticsRepository.getDeviceStatistics(shortCode).stream()
+                .filter(arr -> arr[0] != null)
                 .collect(Collectors.toMap(
                         arr -> (String) arr[0],
                         arr -> (Long) arr[1]
@@ -141,22 +156,35 @@ public class UrlShortenerService {
         return AnalyticsResponse.builder()
                 .shortCode(shortCode)
                 .totalClicks(totalClicks)
-                .clicksLast24Hours(clicks24h)
-                .clicksLast7Days(clicks7d)
-                .countryDistribution(countryDistribution)
                 .deviceDistribution(deviceDistribution)
                 .build();
     }
-/*
- * This method deletes a short URL from the system.
- */
+    @Transactional
+    public ShortUrlResponse updateShortUrl(String shortCode, UpdateShortUrlRequest request) {
+        log.info("Updating short URL: {}", shortCode);
+
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode)
+                .orElseThrow(() -> new UrlNotFoundException("Short URL not found: " + shortCode));
+
+        // Update expiration if provided
+        if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
+            Instant newExpiresAt = Instant.now().plus(request.getExpiresInMinutes(), ChronoUnit.MINUTES);
+            shortUrl.setExpiresAt(newExpiresAt);
+            shortUrl.setStatus(UrlStatus.ACTIVE);
+        }
+
+        shortUrl = shortUrlRepository.save(shortUrl);
+        log.info("Short URL updated: {}", shortCode);
+
+        return toResponse(shortUrl);
+    }
+
     @Transactional
     public void deleteShortUrl(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("Short URL not found: " + shortCode));
-        shortUrl.setStatus(UrlStatus.DELETED);
-        shortUrlRepository.save(shortUrl);
-        log.info("Short URL deleted: {}", shortCode);
+        shortUrlRepository.delete(shortUrl);
+        log.info("Short URL deleted from database: {}", shortCode);
     }
 
     private void trackAccess(ShortUrl shortUrl, HttpServletRequest request) {
@@ -217,5 +245,10 @@ public class UrlShortenerService {
                 .clickCount(shortUrl.getClickCount())
                 .status(shortUrl.getComputedStatus())
                 .build();
+    }
+
+    private String getAuthenticatedUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication.getName();
     }
 }
