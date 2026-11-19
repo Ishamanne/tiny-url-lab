@@ -39,8 +39,8 @@ class OpenApiConfigTest {
                 .andExpect(jsonPath("$.paths['/api/shorten']").exists())
                 .andExpect(jsonPath("$.paths['/api/urls']").exists())
                 .andExpect(jsonPath("$.paths['/api/urls/{shortCode}']").exists())
-                .andExpect(jsonPath("$.paths['/api/urls/{shortCode}/analytics']").exists())
-                .andExpect(jsonPath("$.paths['/{shortCode}']").exists());
+                .andExpect(jsonPath("$.paths['/api/urls/{shortCode}/analytics']").exists());
+                // Note: /{shortCode} redirect endpoint is hidden from OpenAPI docs
     }
 
     @Test

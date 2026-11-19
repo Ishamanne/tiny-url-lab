@@ -5,6 +5,7 @@ import com.example.tinyurllab.urlshortener.dto.ShortUrlResponse;
 import com.example.tinyurllab.urlshortener.exception.UrlExpiredException;
 import com.example.tinyurllab.urlshortener.exception.UrlNotFoundException;
 import com.example.tinyurllab.urlshortener.model.ShortUrl;
+import com.example.tinyurllab.urlshortener.model.UrlStatus;
 import com.example.tinyurllab.urlshortener.repository.ShortUrlRepository;
 import com.example.tinyurllab.urlshortener.repository.UrlAnalyticsRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +15,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
@@ -26,15 +32,16 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UrlShortenerServiceTest {
 
-    @Mock(lenient = true)
+    @Mock
     private ShortUrlRepository shortUrlRepository;
 
-    @Mock(lenient = true)
+    @Mock
     private UrlAnalyticsRepository analyticsRepository;
 
-    @Mock(lenient = true)
+    @Mock
     private HttpServletRequest httpServletRequest;
 
     @InjectMocks
@@ -43,6 +50,13 @@ class UrlShortenerServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(urlShortenerService, "baseUrl", "http://localhost:8080");
+
+        // Mock security context
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getName()).thenReturn("testuser");
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
     }
 
     @Test
@@ -50,7 +64,6 @@ class UrlShortenerServiceTest {
         // Arrange
         CreateShortUrlRequest request = new CreateShortUrlRequest();
         request.setOriginalUrl("https://example.com");
-        request.setDescription("Test URL");
 
         ShortUrl savedUrl = ShortUrl.builder()
                 .id(1L)
@@ -58,7 +71,6 @@ class UrlShortenerServiceTest {
                 .originalUrl("https://example.com")
                 .createdAt(Instant.now())
                 .clickCount(0L)
-                .active(true)
                 .build();
 
         when(shortUrlRepository.existsByShortCode(anyString())).thenReturn(false);
@@ -79,7 +91,7 @@ class UrlShortenerServiceTest {
         // Arrange
         CreateShortUrlRequest request = new CreateShortUrlRequest();
         request.setOriginalUrl("https://example.com");
-        request.setCustomCode("custom");
+        request.setCustomAlias("custom");
 
         ShortUrl savedUrl = ShortUrl.builder()
                 .id(1L)
@@ -87,10 +99,10 @@ class UrlShortenerServiceTest {
                 .originalUrl("https://example.com")
                 .createdAt(Instant.now())
                 .clickCount(0L)
-                .active(true)
                 .build();
 
-        when(shortUrlRepository.existsByShortCode("custom")).thenReturn(false);
+        when(shortUrlRepository.existsByShortCodeAndActive("custom")).thenReturn(false);
+        when(shortUrlRepository.findByShortCode("custom")).thenReturn(Optional.empty());
         when(shortUrlRepository.save(any(ShortUrl.class))).thenReturn(savedUrl);
 
         // Act
@@ -105,9 +117,9 @@ class UrlShortenerServiceTest {
         // Arrange
         CreateShortUrlRequest request = new CreateShortUrlRequest();
         request.setOriginalUrl("https://example.com");
-        request.setCustomCode("existing");
+        request.setCustomAlias("existing");
 
-        when(shortUrlRepository.existsByShortCode("existing")).thenReturn(true);
+        when(shortUrlRepository.existsByShortCodeAndActive("existing")).thenReturn(true);
 
         // Act & Assert
         assertThrows(IllegalArgumentException.class, () -> urlShortenerService.createShortUrl(request));
@@ -122,7 +134,6 @@ class UrlShortenerServiceTest {
                 .originalUrl("https://example.com")
                 .createdAt(Instant.now())
                 .clickCount(0L)
-                .active(true)
                 .build();
 
         when(shortUrlRepository.findByShortCode("abc123")).thenReturn(Optional.of(shortUrl));
@@ -150,19 +161,19 @@ class UrlShortenerServiceTest {
     }
 
     @Test
-    void resolveShortCode_Inactive_ThrowsException() {
+    void resolveShortCode_Expired_Status_ThrowsException() {
         // Arrange
         ShortUrl shortUrl = ShortUrl.builder()
                 .id(1L)
                 .shortCode("abc123")
                 .originalUrl("https://example.com")
-                .active(false)
+                .status(UrlStatus.EXPIRED)
                 .build();
 
         when(shortUrlRepository.findByShortCode("abc123")).thenReturn(Optional.of(shortUrl));
 
         // Act & Assert
-        assertThrows(UrlNotFoundException.class,
+        assertThrows(UrlExpiredException.class,
                 () -> urlShortenerService.resolveShortCode("abc123", httpServletRequest));
     }
 
@@ -174,7 +185,6 @@ class UrlShortenerServiceTest {
                 .shortCode("abc123")
                 .originalUrl("https://example.com")
                 .expiresAt(Instant.now().minus(1, ChronoUnit.DAYS))
-                .active(true)
                 .build();
 
         when(shortUrlRepository.findByShortCode("abc123")).thenReturn(Optional.of(shortUrl));
@@ -193,7 +203,6 @@ class UrlShortenerServiceTest {
                 .originalUrl("https://example.com")
                 .createdAt(Instant.now())
                 .clickCount(10L)
-                .active(true)
                 .build();
 
         when(shortUrlRepository.findByShortCode("abc123")).thenReturn(Optional.of(shortUrl));
@@ -214,7 +223,6 @@ class UrlShortenerServiceTest {
                 .id(1L)
                 .shortCode("abc123")
                 .originalUrl("https://example.com")
-                .active(true)
                 .build();
 
         when(shortUrlRepository.findByShortCode("abc123")).thenReturn(Optional.of(shortUrl));
@@ -224,6 +232,6 @@ class UrlShortenerServiceTest {
         urlShortenerService.deleteShortUrl("abc123");
 
         // Assert
-        verify(shortUrlRepository).save(argThat(url -> !url.getActive()));
+        verify(shortUrlRepository).delete(any(ShortUrl.class));
     }
 }
