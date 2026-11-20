@@ -163,7 +163,7 @@ public class BrownfieldScenario implements WorkflowScenario {
                 .description("Validate all tests pass and no breaking changes")
                 .stage(WorkflowStage.VALIDATION)
                 .type(TaskNode.TaskType.VALIDATION)
-                .dependencies(List.of("updateDocs"))
+                .dependencies(List.of("brown-008"))
                 .requiresHumanApproval(true)
                 .approvalReason("Feature enhancement requires approval")
                 .build();

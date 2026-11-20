@@ -131,7 +131,7 @@ public class AmbiguousScenario implements WorkflowScenario {
                 .description("Confirm performance targets achieved")
                 .stage(WorkflowStage.VALIDATION)
                 .type(TaskNode.TaskType.VALIDATION)
-                .dependencies(List.of("document"))
+                .dependencies(List.of("amb-007"))
                 .build();
         tasks.add(validate);
 
