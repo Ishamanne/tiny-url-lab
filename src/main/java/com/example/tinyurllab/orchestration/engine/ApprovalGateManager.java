@@ -43,6 +43,20 @@ public class ApprovalGateManager {
      * For demo, we simulate approval
      */
     public boolean processApprovalGate(TaskNode task, WorkflowContext context) {
+        if (validateApprovals(task.getId(), context)) {
+            String approval = context.getApprovals().get(task.getId());
+            if (approval != null && !"PENDING".equals(approval)) {
+                task.setStatus(TaskNode.TaskStatus.RUNNING);
+                log.info("Recorded approval found for task {}; resuming", task.getId());
+                return true;
+            }
+        }
+
+        String reason = task.getApprovalReason();
+        if (reason == null || reason.isBlank()) {
+            reason = "High-impact task requires human approval";
+            task.setApprovalReason(reason);
+        }
         log.info("⚠️  HUMAN APPROVAL REQUIRED");
         log.info("Task: {} [{}]", task.getId(), task.getName());
         log.info("Reason: {}", task.getApprovalReason());
@@ -50,22 +64,10 @@ public class ApprovalGateManager {
         task.setStatus(TaskNode.TaskStatus.AWAITING_APPROVAL);
 
         auditLogger.logApprovalRequest(task.getId(), task.getApprovalReason(), context);
-
-        // Simulate approval (in production, this would be async)
-        boolean approved = simulateApproval(task, context);
-
-        if (approved) {
-            task.setStatus(TaskNode.TaskStatus.RUNNING);
-            context.getApprovals().put(task.getId(), "AUTO_APPROVED_FOR_DEMO");
-            auditLogger.logApprovalGranted(task.getId(), context);
-            log.info("✅ Approval Granted (simulated)");
-            return true;
-        } else {
-            task.setStatus(TaskNode.TaskStatus.FAILED);
-            task.setErrorMessage("Approval rejected");
-            log.warn("❌ Approval Rejected");
-            return false;
-        }
+        context.setStatus(WorkflowContext.WorkflowStatus.AWAITING_APPROVAL);
+        context.getApprovals().put(task.getId(), "PENDING");
+        log.info("Approval paused; use /approve or /reject to continue");
+        return false;
     }
 
     /**

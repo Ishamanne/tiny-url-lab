@@ -185,9 +185,7 @@ class UrlShortenerControllerIntegrationTest {
         String shortCode = objectMapper.readTree(createResponse).get("shortCode").asText();
 
         // Delete URL
-        mockMvc.perform(delete("/api/urls")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"shortCode\":\"" + shortCode + "\"}"))
+        mockMvc.perform(delete("/api/urls/{shortCode}", shortCode))
                 .andExpect(status().isNoContent());
 
         // Verify deletion

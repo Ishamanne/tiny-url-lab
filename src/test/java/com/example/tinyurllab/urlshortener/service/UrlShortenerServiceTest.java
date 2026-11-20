@@ -113,6 +113,29 @@ class UrlShortenerServiceTest {
     }
 
     @Test
+    void createShortUrl_WithTwoCharacterCustomAlias_Success() {
+        CreateShortUrlRequest request = new CreateShortUrlRequest();
+        request.setOriginalUrl("https://example.com");
+        request.setCustomAlias("ab");
+
+        ShortUrl savedUrl = ShortUrl.builder()
+                .id(1L)
+                .shortCode("ab")
+                .originalUrl("https://example.com")
+                .createdAt(Instant.now())
+                .clickCount(0L)
+                .build();
+
+        when(shortUrlRepository.existsByShortCodeAndActive("ab")).thenReturn(false);
+        when(shortUrlRepository.findByShortCode("ab")).thenReturn(Optional.empty());
+        when(shortUrlRepository.save(any(ShortUrl.class))).thenReturn(savedUrl);
+
+        ShortUrlResponse response = urlShortenerService.createShortUrl(request);
+
+        assertEquals("ab", response.getShortCode());
+    }
+
+    @Test
     void createShortUrl_CustomCodeExists_ThrowsException() {
         // Arrange
         CreateShortUrlRequest request = new CreateShortUrlRequest();

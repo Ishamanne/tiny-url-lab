@@ -2,7 +2,6 @@ package com.example.tinyurllab.urlshortener.controller;
 
 import com.example.tinyurllab.urlshortener.dto.AnalyticsResponse;
 import com.example.tinyurllab.urlshortener.dto.CreateShortUrlRequest;
-import com.example.tinyurllab.urlshortener.dto.DeleteShortUrlRequest;
 import com.example.tinyurllab.urlshortener.dto.UpdateShortUrlRequest;
 import com.example.tinyurllab.urlshortener.dto.ShortUrlResponse;
 import com.example.tinyurllab.urlshortener.service.UrlShortenerService;
@@ -22,6 +21,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -160,11 +160,15 @@ public class UrlShortenerController {
             @ApiResponse(responseCode = "404", description = "Short URL not found")
     })
     @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/api/urls")
-    @CacheEvict(value = {"shortUrls", "shortUrl", "analytics"}, allEntries = true)
+    @DeleteMapping("/api/urls/{shortCode}")
+    @Caching(evict = {
+            @CacheEvict(value = "shortUrls", allEntries = true),
+            @CacheEvict(value = {"shortUrl", "analytics"}, key = "#shortCode")
+    })
     @Timed(value = "url.delete", description = "Time taken to delete URL")
-    public ResponseEntity<Void> deleteShortUrl(@Valid @RequestBody DeleteShortUrlRequest request) {
-        urlShortenerService.deleteShortUrl(request.getShortCode());
+    public ResponseEntity<Void> deleteShortUrl(
+            @Parameter(description = "Short code of the URL") @PathVariable String shortCode) {
+        urlShortenerService.deleteShortUrl(shortCode);
         return ResponseEntity.noContent().build();
     }
 
@@ -175,7 +179,10 @@ public class UrlShortenerController {
             @ApiResponse(responseCode = "410", description = "URL expired")
     })
     @GetMapping("/{shortCode}")
-    @CacheEvict(value = {"shortUrl", "shortUrls", "analytics"}, allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "shortUrls", allEntries = true),
+            @CacheEvict(value = "shortUrl", key = "#shortCode")
+    })
     @Timed(value = "url.redirect", description = "Time taken to redirect to original URL")
     public void redirect(
             @Parameter(description = "Short code of the URL") @PathVariable String shortCode,

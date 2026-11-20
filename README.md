@@ -11,7 +11,7 @@ This project fulfills the **Agentic Software Engineering System** assignment req
 - **Production-Quality Output**: Working URL shortener service with 33 Java classes, 31+ tests, comprehensive documentation
 - **REST API**: Orchestration endpoints for triggering workflows, inspecting status, approving gates, and retrieving metrics
 
-> **Note on Agent Execution:** This prototype uses **deterministic simulation** for agent tasks to enable local reproducibility without requiring LLM API keys. The orchestration architecture is production-ready and includes clear integration patterns for plugging in live LLM providers (Claude, GPT-4, etc.). See [ENGINEERING_SUMMARY.md](ENGINEERING_SUMMARY.md#agent-execution-model) for details.
+> **Note on Agent Execution:** Task logic is deterministic and limited to analysis/design/documentation operations plus real URL shortener integration. It does not invoke an external LLM or modify source files. See [Limitations](#limitations).
 
 ## Features
 
@@ -24,6 +24,7 @@ This project fulfills the **Agentic Software Engineering System** assignment req
 
 ### Production Features
 - **Caching**: Spring Cache with @Cacheable for improved performance
+- **Rate Limiting**: Fixed-window `POST /api/shorten` limit (100 requests/minute per client by default), `429 Retry-After` and Micrometer counters
 - **Metrics**: Spring Actuator + Prometheus for monitoring and observability
 - **Security**: Role-based access control (USER/ADMIN) with HTTP Basic Auth
 - **API Documentation**: Interactive Swagger UI with OpenAPI 3.0 spec
@@ -83,6 +84,19 @@ This project contains **two independent systems**:
 
 ---
 
+## Limitations
+
+- Agent tasks are deterministic local operations; code generation creates a real demonstration short URL but does not edit the repository or call an external LLM.
+- Approval checkpoints use REST `/approve` and `/reject` endpoints. There is no approval UI or notification/timeout integration.
+- Policy guardrails implement in-process checks for sensitive context, approval, retry and resource limits. They do not run an external SAST, DAST or dependency scanner.
+- Scenario-created short URLs are deleted at workflow completion.
+- Workflow state and retry counters are held in memory; restart loses active workflows.
+- H2 and the H2 console are disabled by default for local/prototype use.
+
+## Test Summary
+
+Run `./gradlew clean test` from a fresh clone. The suite covers URL service/controller behavior plus orchestration success, cycle, guardrail, approval and re-planning paths.
+
 ## Quick Start
 
 ### Prerequisites
@@ -110,7 +124,7 @@ This project contains **two independent systems**:
 4. **Access the application**:
    - Application: `http://localhost:8080`
    - Swagger UI: `http://localhost:8080/swagger-ui.html`
-   - H2 Console: `http://localhost:8080/h2-console`
+   - H2 Console: disabled by default; set `H2_CONSOLE_ENABLED=true` only for local debugging
      - JDBC URL: `jdbc:h2:mem:tinylinkdb`
      - Username: `sa`
      - Password: (empty)
@@ -140,9 +154,10 @@ The application uses HTTP Basic Authentication with role-based access control:
 | `/api/urls/{shortCode}/analytics` | GET | USER, ADMIN | Get analytics data |
 | `/api/shorten` | POST | ADMIN | Create new short URL |
 | `/api/urls/{shortCode}` | PATCH | ADMIN | Update short URL expiration |
-| `/api/urls` | DELETE | ADMIN | Delete short URL |
+| `/api/urls/{shortCode}` | DELETE | ADMIN | Delete short URL |
 | `/swagger-ui/**` | GET | Public | Swagger UI documentation |
-| `/actuator/**` | GET | Public | Metrics and health endpoints |
+| `/actuator/health`, `/actuator/info`, `/actuator/prometheus` | GET | Public | Health, build info and Prometheus metrics |
+| `/actuator/**` | GET | ADMIN | Other actuator endpoints |
 
 #### **Orchestration Endpoints** (Developer/reviewer facing - NOT for URL shortening)
 
@@ -438,11 +453,24 @@ Demonstrates adding features to existing codebase with impact analysis and regre
 ```
 Demonstrates requirement clarification, option evaluation, and human decision points.
 
-Each scenario shows:
-- ✅ Requirement parsing and normalization
+Each scenario passes its submitted requirement through a deterministic first-pass analyzer. The analyzer normalizes whitespace, identifies supported URL-shortener topics, proposes candidate acceptance criteria, and flags vague or unsupported requests. It does not use an LLM, and the scenario's task graph remains predefined; use the audit endpoint to inspect the analysis:
+
+```bash
+curl -u admin:admin123 -X POST http://localhost:8080/api/orchestration/run/greenfield \
+  -H 'Content-Type: application/json' \
+  -d '{"requirement":"Improve redirect latency and add click analytics"}'
+
+# Use the returned workflowId:
+curl -u admin:admin123 \
+  http://localhost:8080/api/orchestration/audit/{workflowId}
+```
+
+The audit trail includes a `REQUIREMENT_ANALYZED` event and a `REQUIREMENT_ANALYSIS` decision with normalized input, detected topics, candidate criteria, assumptions, and ambiguities. These are reviewable suggestions, not validated acceptance criteria.
+
+Each scenario demonstrates:
+- ✅ Deterministic requirement analysis and audit lineage
 - ✅ Task decomposition with dependency graphs
 - ✅ Parallel execution where possible
 - ✅ Human approval gates for critical decisions
 - ✅ Quality gates (security, testing, compliance)
 - ✅ Audit trail and metrics collection
-

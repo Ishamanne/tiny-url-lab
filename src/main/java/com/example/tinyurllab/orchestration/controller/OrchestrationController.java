@@ -11,6 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.time.Duration;
 import java.util.*;
@@ -35,10 +38,10 @@ public class OrchestrationController {
     @PostMapping("/run/{scenario}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Run a workflow scenario",
-               description = "Triggers execution of a workflow scenario (greenfield/brownfield/ambiguous)")
+               description = "Runs the selected predefined workflow and performs deterministic first-pass analysis of the supplied requirement. Inspect /audit/{workflowId} for extracted topics, candidate criteria, assumptions, and ambiguities.")
     public ResponseEntity<WorkflowExecutionResponse> runScenario(
             @PathVariable String scenario,
-            @RequestBody(required = false) RunScenarioRequest request) {
+            @Valid @RequestBody(required = false) RunScenarioRequest request) {
 
         log.info("Starting workflow scenario: {}", scenario);
 
@@ -52,7 +55,7 @@ public class OrchestrationController {
         // Initialize context
         WorkflowContext context = workflowScenario.initializeContext();
         if (request != null && request.getRequirement() != null) {
-            context.setRequirement(request.getRequirement());
+            context.setRequirement(request.getRequirement().trim());
         }
 
         // Build workflow
@@ -92,12 +95,11 @@ public class OrchestrationController {
             return ResponseEntity.notFound().build();
         }
 
-        // Record approval
-        context.getApprovals().put(taskId, request.getApprover() + ": " + request.getComments());
-        context.addAuditEvent(taskId, "APPROVAL_GRANTED",
-                "Human approval received",
-                Map.of("approver", request.getApprover(), "comments", request.getComments()),
-                "HUMAN");
+        context = orchestrator.approveTask(workflowId, taskId,
+                request.getApprover(), request.getComments());
+        if (context == null) {
+            return ResponseEntity.notFound().build();
+        }
 
         log.info("Task {} approved by {} for workflow {}", taskId, request.getApprover(), workflowId);
 
@@ -125,13 +127,11 @@ public class OrchestrationController {
             return ResponseEntity.notFound().build();
         }
 
-        // Record rejection
-        context.addAuditEvent(taskId, "APPROVAL_REJECTED",
-                "Human approval rejected - workflow stopped",
-                Map.of("approver", request.getApprover(), "reason", request.getComments()),
-                "HUMAN");
-
-        context.setStatus(WorkflowContext.WorkflowStatus.FAILED);
+        context = orchestrator.rejectTask(workflowId, taskId,
+                request.getApprover(), request.getComments());
+        if (context == null) {
+            return ResponseEntity.notFound().build();
+        }
 
         log.warn("Task {} rejected by {} for workflow {}", taskId, request.getApprover(), workflowId);
 
@@ -370,6 +370,8 @@ public class OrchestrationController {
 
     @Data
     public static class RunScenarioRequest {
+        @NotBlank
+        @Size(max = 2000)
         private String requirement;
         private Map<String, Object> parameters;
     }

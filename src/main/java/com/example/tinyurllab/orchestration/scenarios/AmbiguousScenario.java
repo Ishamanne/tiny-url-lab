@@ -34,10 +34,20 @@ public class AmbiguousScenario implements WorkflowScenario {
                 .stage(WorkflowStage.REQUIREMENT_ANALYSIS)
                 .type(TaskNode.TaskType.ANALYSIS)
                 .dependencies(List.of())
-                .requiresHumanApproval(true)
-                .approvalReason("Ambiguous requirement needs human clarification")
                 .build();
         tasks.add(clarifyReq);
+
+        TaskNode clarifyDecision = TaskNode.builder()
+                .id("amb-clarify")
+                .name("Review Requirement Ambiguities")
+                .description("Review extracted topics and ambiguities and confirm scope")
+                .stage(WorkflowStage.REQUIREMENT_ANALYSIS)
+                .type(TaskNode.TaskType.MANUAL_REVIEW)
+                .dependencies(List.of("amb-001"))
+                .requiresHumanApproval(true)
+                .approvalReason("Confirm the analyzed requirement scope before profiling")
+                .build();
+        tasks.add(clarifyDecision);
 
         // Stage 2: Performance Profiling
         TaskNode profileSystem = TaskNode.builder()
@@ -46,7 +56,7 @@ public class AmbiguousScenario implements WorkflowScenario {
                 .description("Identify bottlenecks: database queries, URL generation, analytics")
                 .stage(WorkflowStage.REQUIREMENT_ANALYSIS)
                 .type(TaskNode.TaskType.ANALYSIS)
-                .dependencies(List.of("amb-001"))
+                .dependencies(List.of("amb-clarify"))
                 .build();
         tasks.add(profileSystem);
 

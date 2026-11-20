@@ -195,7 +195,7 @@ public class BrownfieldScenario implements WorkflowScenario {
                 "GET /api/urls - List all URLs (USER/ADMIN)",
                 "GET /api/urls/{shortCode} - Get specific URL (USER/ADMIN)",
                 "PATCH /api/urls/{shortCode} - Update expiration (ADMIN only)",
-                "DELETE /api/urls - Delete URL (ADMIN only)",
+                "DELETE /api/urls/{shortCode} - Delete URL (ADMIN only)",
                 "GET /api/urls/{shortCode}/analytics - Get analytics (USER/ADMIN)"
         ));
 

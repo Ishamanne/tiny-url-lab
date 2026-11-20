@@ -72,7 +72,7 @@ public class RetryRollbackHandler {
      * Base: 1000ms, multiplier: 2^retry
      */
     private long calculateBackoff(int retryCount) {
-        long baseBackoff = 1000L; // 1 second
+        long baseBackoff = 100L;
         return (long) (baseBackoff * Math.pow(2, retryCount - 1));
     }
 

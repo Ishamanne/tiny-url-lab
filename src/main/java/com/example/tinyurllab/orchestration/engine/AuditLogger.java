@@ -2,6 +2,7 @@ package com.example.tinyurllab.orchestration.engine;
 
 import com.example.tinyurllab.orchestration.model.TaskNode;
 import com.example.tinyurllab.orchestration.model.WorkflowContext;
+import com.example.tinyurllab.orchestration.model.WorkflowStage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -85,13 +86,16 @@ public class AuditLogger {
     }
 
     public void logApprovalRequest(String taskId, String reason, WorkflowContext context) {
+        String safeReason = reason == null || reason.isBlank()
+                ? "Human review required"
+                : reason;
         log.info("Approval Required: Task {} - Reason: {}", taskId, reason);
 
         context.addAuditEvent(
                 taskId,
                 "APPROVAL_REQUESTED",
-                "Human approval required: " + reason,
-                Map.of("approval_reason", reason),
+                "Human approval required: " + safeReason,
+                Map.of("approval_reason", safeReason),
                 "SYSTEM"
         );
     }
@@ -191,5 +195,33 @@ public class AuditLogger {
                 "Execution Summary: %d total tasks, %d completed, %d failed, %d re-plans, %d approvals",
                 totalTasks, completedTasks, failedTasks, replans, context.getApprovals().size()
         );
+    }
+
+    // Additional helper methods for WorkflowOrchestrator
+    public void logWorkflowEnd(String workflowId, WorkflowContext.WorkflowStatus status, Duration duration) {
+        log.info("=== Workflow {} Ended ===", workflowId);
+        log.info("Status: {}", status);
+        log.info("Duration: {}ms", duration.toMillis());
+    }
+
+    public void logTaskStart(String taskId, String taskName, WorkflowStage stage, WorkflowContext context) {
+        log.info("Task Started: {} [{}] - {}", taskId, stage, taskName);
+        context.addAuditEvent(taskId, "TASK_STARTED", taskName, Map.of("stage", stage.toString()), "AGENT");
+    }
+
+    public void logTaskFailed(String taskId, String errorMessage, WorkflowContext context) {
+        log.error("Task Failed: {} - {}", taskId, errorMessage);
+        context.addAuditEvent(taskId, "TASK_FAILED", errorMessage, Map.of(), "AGENT");
+    }
+
+    public void logGuardrailViolation(String taskId, java.util.List<?> violations, WorkflowContext context) {
+        log.warn("Guardrail Violations for task {}: {} violations", taskId, violations.size());
+        context.addAuditEvent(taskId, "GUARDRAIL_VIOLATION",
+                "Policy violations detected", Map.of("count", violations.size()), "SYSTEM");
+    }
+
+    public void logGateFailed(String gateName, String taskId, String reason, WorkflowContext context) {
+        log.warn("Gate Failed: {} for task {} - {}", gateName, taskId, reason);
+        context.addAuditEvent(taskId, "GATE_FAILED", gateName, Map.of("reason", reason), "SYSTEM");
     }
 }

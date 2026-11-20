@@ -13,11 +13,16 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+    @Value("${app.security.user-password:user123}")
+    private String userPassword;
+    @Value("${app.security.admin-password:admin123}")
+    private String adminPassword;
 
     @Bean
     @org.springframework.core.annotation.Order(1)
@@ -25,7 +30,8 @@ public class SecurityConfig {
         http
                 .securityMatcher("/actuator/**")
                 .authorizeHttpRequests(authorize -> authorize
-                        .anyRequest().permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+                        .anyRequest().hasRole("ADMIN")
                 )
                 .csrf(csrf -> csrf.disable());
         return http.build();
@@ -38,8 +44,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         // Public endpoints - Swagger UI and API docs
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/configuration/**").permitAll()
-                        // Public endpoints - H2 console
-                        .requestMatchers("/h2-console/**").permitAll()
                         // Read operations - accessible by any authenticated user
                         .requestMatchers(HttpMethod.GET, "/api/urls/**").hasAnyRole("USER", "ADMIN")
                         // Write operations - only for ADMIN role
@@ -61,13 +65,13 @@ public class SecurityConfig {
     public UserDetailsService userDetailsService() {
         UserDetails user = User.builder()
                 .username("user")
-                .password(passwordEncoder().encode("user123"))
+                .password(passwordEncoder().encode(userPassword))
                 .roles("USER")
                 .build();
 
         UserDetails admin = User.builder()
                 .username("admin")
-                .password(passwordEncoder().encode("admin123"))
+                .password(passwordEncoder().encode(adminPassword))
                 .roles("ADMIN", "USER")
                 .build();
 

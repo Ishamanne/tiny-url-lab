@@ -48,8 +48,15 @@ public class UrlShortenerService {
 
         String shortCode;
         if (request.getCustomAlias() != null && !request.getCustomAlias().isBlank()) {
+            String alias = request.getCustomAlias();
+            if (List.of("api", "actuator", "h2-console", "swagger-ui.html").contains(alias.toLowerCase())) {
+                throw new IllegalArgumentException("Custom alias is reserved");
+            }
+            if (!alias.matches("[a-zA-Z0-9_-]{2,10}")) {
+                throw new IllegalArgumentException("Custom alias must be 2-10 letters, numbers, underscores or hyphens");
+            }
             // Check if alias exists and is active (not expired or deleted)
-            if (shortUrlRepository.existsByShortCodeAndActive(request.getCustomAlias())) {
+            if (shortUrlRepository.existsByShortCodeAndActive(alias)) {
                 throw new IllegalArgumentException("Custom alias already exists and is active");
             }
 
@@ -62,17 +69,17 @@ public class UrlShortenerService {
                         }
                     });
 
-            shortCode = request.getCustomAlias();
+            shortCode = alias;
         } else {
             shortCode = generateUniqueShortCode();
         }
 
-        // Set expiration based on expiresInMinutes or default to 7 minutes
+        // Default expiration is 30 days when omitted
         Instant expiresAt;
         if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
             expiresAt = Instant.now().plus(request.getExpiresInMinutes(), ChronoUnit.MINUTES);
         } else {
-            expiresAt = Instant.now().plus(7, ChronoUnit.MINUTES);
+            expiresAt = Instant.now().plus(30, ChronoUnit.DAYS);
         }
 
         // Get authenticated username from security context
@@ -201,11 +208,8 @@ public class UrlShortenerService {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty()) {
-            ip = request.getRemoteAddr();
-        }
-        return ip;
+        // X-Forwarded-For is not trusted unless a trusted-proxy layer is configured.
+        return request.getRemoteAddr();
     }
 
     private String extractCountryFromIp(String ip) {

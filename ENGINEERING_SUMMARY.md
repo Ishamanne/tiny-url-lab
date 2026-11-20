@@ -482,7 +482,7 @@ Violations categorized by severity:
 ✅ **Policy guardrails for security, compliance, change control**
 ✅ **Audit-grade observability and traceability**
 ✅ **Reliability metrics: success rate, retry/rollback frequency, MTTR, latency**
-⚠️ **Dynamic re-planning** (Architecture in place, not fully implemented)
+**Dynamic re-planning:** implemented for bounded retry exhaustion by inserting a fix task and re-test task into the live DAG.
 
 ---
 
